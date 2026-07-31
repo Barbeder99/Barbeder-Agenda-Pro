@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>💈 Barber Agenda Pro</title>
+
+  <!-- Meta etiquetas para PWA e iOS Safari -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Barber Agenda">
+  <meta name="theme-color" content="#0f0f0f">
+  <meta name="format-detection" content="telephone=no">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gold: "#D4AF37",
+            goldLight: "#E8C860",
+            dark: "#0f0f0f",
+            card: "#1b1b1b",
+            card2: "#161616"
+          },
+          fontFamily: {
+            display: ['Oswald', 'sans-serif'],
+            body: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    html, body {
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(212,175,55,.06), transparent 60%),
+        #0f0f0f;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      overscroll-behavior-y: contain;
+    }
+
+    /* Corrige la altura real en Safari de iOS (barra de direcciones dinámica) */
+    .min-h-screen { min-height: 100vh; min-height: 100dvh; }
+
+    h1, h2, h3, .font-display { font-family: 'Oswald', sans-serif; letter-spacing: .02em; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #D4AF37; border-radius: 10px; }
+
+    button, a, .tab-filtro, select, .card { touch-action: manipulation; }
+
+    .card {
+      background: #1b1b1b;
+      border: 1px solid rgba(212, 175, 55, .18);
+      box-shadow: 0 0 20px rgba(212, 175, 55, .06);
+    }
+
+    input, select, textarea {
+      background: #111;
+      color: white;
+      font-size: 16px !important; /* Previene el zoom automático de Safari en iOS */
+      border: 1px solid #2a2a2a;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #D4AF37;
+      box-shadow: 0 0 0 2px rgba(212,175,55,.15);
+    }
+    input::placeholder { color: #6b6b6b; }
+
+    /* Franja estilo poste de barbería, en tonos dorado/negro (firma visual de la app) */
+    .barber-stripe {
+      height: 6px;
+      border-radius: 999px;
+      background: repeating-linear-gradient(135deg, #D4AF37 0 14px, #1b1b1b 14px 28px);
+      opacity: .9;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .85);
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      backdrop-filter: blur(5px);
+      padding: 1rem;
+      overscroll-behavior: contain;
+    }
+    .modal.show { display: flex; }
+    .modal > .card { max-height: calc(100dvh - 2rem); overflow-y: auto; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: .2rem .55rem;
+      border-radius: 999px;
+      letter-spacing: .02em;
+      white-space: nowrap;
+    }
+    .badge-pendiente { background: rgba(212,175,55,.15); color: #E8C860; border: 1px solid rgba(212,175,55,.4); }
+    .badge-confirmada { background: rgba(59,130,246,.15); color: #93c5fd; border: 1px solid rgba(59,130,246,.4); }
+    .badge-completada { background: rgba(34,197,94,.15); color: #86efac; border: 1px solid rgba(34,197,94,.4); }
+    .badge-cancelada { background: rgba(239,68,68,.15); color: #fca5a5; border: 1px solid rgba(239,68,68,.4); }
+
+    .tab-filtro {
+      font-size: .82rem;
+      font-weight: 600;
+      padding: .4rem .8rem;
+      border-radius: 999px;
+      border: 1px solid #2a2a2a;
+      color: #a3a3a3;
+      transition: .15s;
+      cursor: pointer;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .tab-filtro.active {
+      background: #D4AF37;
+      color: #111;
+      border-color: #D4AF37;
+    }
+
+    .tab-principal {
+      font-size: .9rem;
+      padding: .55rem 1rem;
+    }
+
+    .toast-stack {
+      position: fixed;
+      top: calc(1.25rem + env(safe-area-inset-top));
+      right: 1.25rem;
+      left: 1.25rem;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: .5rem;
+      max-width: calc(100vw - 2rem);
+      pointer-events: none;
+    }
+    .toast-item {
+      padding: .75rem 1.1rem;
+      border-radius: .6rem;
+      font-weight: 600;
+      font-size: .9rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      animation: toastIn .25s ease-out;
+      max-width: 100%;
+      pointer-events: auto;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-in { animation: fadeIn .2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fade-in, .toast-item { animation: none; }
+    }
+
+    .banner-instalar {
+      display: none;
+      background: linear-gradient(90deg, rgba(212,175,55,.15), rgba(212,175,55,.05));
+      border: 1px solid rgba(212,175,55,.35);
+      color: #E8C860;
+      font-size: .82rem;
+      border-radius: .7rem;
+      padding: .7rem 1rem;
+      margin-bottom: 1rem;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+    }
+    .banner-instalar.show { display: flex; }
+
+    .hidden-panel { display: none; }
+  </style>
+</head>
+
+<body class="text-white min-h-screen font-body">
+
+  <!-- Notificaciones -->
+  <div id="toastStack" class="toast-stack"></div>
+
+  <div class="max-w-7xl mx-auto p-4 md:p-6">
+
+    <!-- Banner para agregar a pantalla de inicio en iPhone -->
+    <div id="bannerInstalar" class="banner-instalar">
+      <span>📲 Para usar esta app en pantalla completa en tu iPhone: toca <strong>Compartir</strong> → <strong>Agregar a pantalla de inicio</strong>.</span>
+      <button onclick="cerrarBannerInstalar()" type="button" class="text-goldLight font-bold text-lg leading-none px-1">&times;</button>
+    </div>
+
+    <!-- Encabezado -->
+    <div class="flex flex-col md:flex-row justify-between items-center mb-3 gap-4">
+      <div class="text-center md:text-left">
+        <h1 class="text-4xl md:text-5xl font-bold text-gold">💈 Barber Agenda Pro</h1>
+        <p class="text-gray-400 mt-1 text-sm md:text-base">Organiza todas tus citas fácilmente.</p>
+      </div>
+      <div class="text-center md:text-right">
+        <div id="clock" class="text-2xl font-bold text-gold font-display">00:00</div>
+        <div id="today" class="text-gray-400 text-sm capitalize"></div>
+      </div>
+    </div>
+
+    <div class="barber-stripe mb-4"></div>
+
+    <!-- Navegación principal -->
+    <div class="flex gap-2 overflow-x-auto pb-1 mb-6" id="navPrincipal">
+      <div class="tab-filtro tab-principal active" data-tab="agenda" onclick="cambiarTab('agenda')">📅 Agenda</div>
+      <div class="tab-filtro tab-principal" data-tab="proximos" onclick="cambiarTab('proximos')">🗓️ Próximos 3 días</div>
+      <div class="tab-filtro tab-principal" data-tab="clientes" onclick="cambiarTab('clientes')">👥 Clientes</div>
+      <div class="tab-filtro tab-principal" onclick="abrirBackup()">🗂️ Respaldo</div>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-6">
+
+      <!-- Formulario Nueva Cita -->
+      <div class="card rounded-xl p-5 md:p-6 h-fit">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-bold font-display">➕ Nueva cita</h2>
+        </div>
+
+        <form id="formCita" onsubmit="guardarCita(event)" class="space-y-4">
+
+          <div>
+            <label class="text-xs text-gray-400 mb-1 block">👥 Cliente guardado</label>
+            <select id="clienteSelect" onchange="seleccionarCliente()" class="w-full p-3 rounded outline-none">
+              <option value="">＋ Cliente nuevo</option>
+            </select>
+          </div>
+
+          <input id="nombre" required type="text" placeholder="👤 Nombre del cliente" class="w-full p-3 rounded outline-none">
+          <input id="telefono" type="tel" inputmode="numeric" placeholder="📱 Celular (opcional, Ej: 912345678)" class="w-full p-3 rounded outline-none">
+          <input id="instagram" type="text" placeholder="📷 Instagram (opcional, Ej: @usuario)" class="w-full p-3 rounded outline-none">
+
+          <select id="servicio" required class="w-full p-3 rounded outline-none">
+            <option value="">💈 Seleccionar Servicio</option>
+            <option value="Corte de cabello">Corte de cabello</option>
+            <option value="Corte de cabello + barba">Corte de cabello + barba</option>
+            <option value="Diseños">Diseños</option>
+            <option value="Cejas">Cejas</option>
+            <option value="Afeitado clásico">Afeitado clásico</option>
+            <option value="Tinte">Tinte</option>
+          </select>
+
+          <input id="precio" type="number" min="0" step="500" inputmode="numeric" placeholder="💰 Precio (opcional, CLP)" class="w-full p-3 rounded outline-none">
+
+          <div class="grid grid-cols-2 gap-3">
+            <input id="fecha" required type="date" class="w-full p-3 rounded outline-none">
+            <input id="hora" required type="time" class="w-full p-3 rounded outline-none">
+          </div>
+
+          <p class="text-xs text-gray-500">Solo el nombre, servicio, fecha y hora son obligatorios. Puedes guardar un cliente sin WhatsApp usando solo su Instagram.</p>
+
+          <button type="submit" class="w-full bg-gold hover:bg-goldLight text-black font-bold rounded p-3 transition cursor-pointer active:scale-95">
+            💾 Guardar cita
+          </button>
+        </form>
+      </div>
+
+      <!-- Panel derecho: Agenda / Próximos / Clientes -->
+      <div class="lg:col-span-2 space-y-6">
+
+        <!-- PANEL: Agenda -->
+        <div id="panelAgenda">
+          <div class="card rounded-xl p-5 md:p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+              <h2 class="text-2xl font-bold font-display">📅 Agenda</h2>
+              <div id="contadorCitas" class="text-gold font-bold text-sm">0 citas</div>
+            </div>
+
+            <!-- Buscador -->
+            <div class="mb-3">
+              <input id="inputBuscador" type="text" oninput="renderizar()" placeholder="🔍 Buscar cliente, celular, instagram o servicio..." class="w-full p-3 rounded outline-none">
+            </div>
+
+            <!-- Filtros de estado -->
+            <div class="flex gap-2 overflow-x-auto pb-1 mb-5" id="filtrosEstado">
+              <div class="tab-filtro active" data-filtro="todas" onclick="cambiarFiltro('todas')">Todas</div>
+              <div class="tab-filtro" data-filtro="hoy" onclick="cambiarFiltro('hoy')">Hoy</div>
+              <div class="tab-filtro" data-filtro="pendiente" onclick="cambiarFiltro('pendiente')">Pendientes</div>
+              <div class="tab-filtro" data-filtro="confirmada" onclick="cambiarFiltro('confirmada')">Confirmadas</div>
+              <div class="tab-filtro" data-filtro="completada" onclick="cambiarFiltro('completada')">Completadas</div>
+            </div>
+
+            <!-- Contenedor Citas -->
+            <div id="listaCitas" class="space-y-4">
+              <div class="text-center text-gray-500 py-10">No hay citas registradas.</div>
+            </div>
+          </div>
+
+          <!-- Estadísticas -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <div class="card rounded-xl p-4 text-center">
+              <h2 class="text-gold text-sm md:text-base font-bold font-display">📅 Hoy</h2>
+              <p id="statHoy" class="text-2xl md:text-3xl font-bold mt-1">0</p>
+            </div>
+            <div class="card rounded-xl p-4 text-center">
+              <h2 class="text-gold text-sm md:text-base font-bold font-display">📋 Total</h2>
+              <p id="statTotal" class="text-2xl md:text-3xl font-bold mt-1">0</p>
+            </div>
+            <div class="card rounded-xl p-4 text-center">
+              <h2 class="text-gold text-sm md:text-base font-bold font-display">💰 Ingresos hoy</h2>
+              <p id="statIngresos" class="text-2xl md:text-3xl font-bold mt-1">$0</p>
+            </div>
+            <div class="card rounded-xl p-4 text-center">
+              <h2 class="text-gold text-sm md:text-base font-bold font-display">👥 Clientes</h2>
+              <p id="statClientes" class="text-2xl md:text-3xl font-bold mt-1">0</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL: Próximos 3 días -->
+        <div id="panelProximos" class="hidden-panel">
+          <div class="card rounded-xl p-5 md:p-6">
+            <h2 class="text-2xl font-bold font-display mb-4">🗓️ Próximos 3 días</h2>
+            <div id="listaProximos" class="space-y-7"></div>
+          </div>
+        </div>
+
+        <!-- PANEL: Clientes -->
+        <div id="panelClientes" class="hidden-panel">
+          <div class="card rounded-xl p-5 md:p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-2xl font-bold font-display">👥 Clientes guardados</h2>
+              <div id="contadorClientes" class="text-gold font-bold text-sm">0 clientes</div>
+            </div>
+
+            <!-- Alta rápida de cliente (sin necesidad de crear una cita) -->
+            <form id="formNuevoCliente" onsubmit="agregarClienteManual(event)" class="grid sm:grid-cols-3 gap-2 mb-4">
+              <input id="ncNombre" required type="text" placeholder="👤 Nombre" class="w-full p-3 rounded outline-none sm:col-span-1">
+              <input id="ncTelefono" type="tel" inputmode="numeric" placeholder="📱 Celular (opcional)" class="w-full p-3 rounded outline-none sm:col-span-1">
+              <input id="ncInstagram" type="text" placeholder="📷 Instagram (opcional)" class="w-full p-3 rounded outline-none sm:col-span-1">
+              <button type="submit" class="sm:col-span-3 bg-gold hover:bg-goldLight text-black font-bold rounded p-3 transition active:scale-95">
+                ➕ Agregar cliente
+              </button>
+            </form>
+
+            <input id="inputBuscadorClientes" type="text" oninput="renderizarClientes()" placeholder="🔍 Buscar por nombre, celular o instagram..." class="w-full p-3 rounded outline-none mb-4">
+            <div id="listaClientes" class="space-y-2"></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal Editar Cita -->
+  <div id="modal" class="modal">
+    <div class="card rounded-xl p-6 w-full max-w-lg fade-in">
+      <h2 class="text-2xl font-bold mb-5 font-display">✏️ Editar cita</h2>
+      <form id="formEditar" onsubmit="guardarEdicion(event)" class="space-y-4">
+        <input id="editId" type="hidden">
+        <input id="editNombre" required class="w-full p-3 rounded outline-none" placeholder="Nombre">
+        <input id="editTelefono" type="tel" inputmode="numeric" class="w-full p-3 rounded outline-none" placeholder="Celular (opcional)">
+        <input id="editInstagram" type="text" class="w-full p-3 rounded outline-none" placeholder="Instagram (opcional)">
+
+        <select id="editServicio" required class="w-full p-3 rounded outline-none">
+          <option value="Corte de cabello">Corte de cabello</option>
+          <option value="Corte de cabello + barba">Corte de cabello + barba</option>
+          <option value="Diseños">Diseños</option>
+          <option value="Cejas">Cejas</option>
+          <option value="Afeitado clásico">Afeitado clásico</option>
+          <option value="Tinte">Tinte</option>
+        </select>
+
+        <input id="editPrecio" type="number" min="0" step="500" inputmode="numeric" placeholder="Precio (opcional, CLP)" class="w-full p-3 rounded outline-none">
+
+        <div class="grid grid-cols-2 gap-3">
+          <input id="editFecha" type="date" required class="w-full p-3 rounded outline-none">
+          <input id="editHora" type="time" required class="w-full p-3 rounded outline-none">
+        </div>
+
+        <select id="editEstado" required class="w-full p-3 rounded outline-none">
+          <option value="pendiente">🟡 Pendiente</option>
+          <option value="confirmada">🔵 Confirmada</option>
+          <option value="completada">🟢 Completada</option>
+          <option value="cancelada">🔴 Cancelada</option>
+        </select>
+
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="flex-1 bg-gold hover:bg-goldLight text-black rounded p-3 font-bold transition active:scale-95">
+            Guardar Cambios
+          </button>
+          <button type="button" onclick="cerrarModal('modal')" class="flex-1 bg-red-600 hover:bg-red-700 rounded p-3 font-bold transition active:scale-95">
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Editar Cliente -->
+  <div id="modalEditarCliente" class="modal">
+    <div class="card rounded-xl p-6 w-full max-w-md fade-in">
+      <h2 class="text-2xl font-bold mb-5 font-display">✏️ Editar cliente</h2>
+      <form id="formEditarCliente" onsubmit="guardarEdicionCliente(event)" class="space-y-4">
+        <input id="editClienteId" type="hidden">
+        <input id="editClienteNombre" required class="w-full p-3 rounded outline-none" placeholder="Nombre">
+        <input id="editClienteTelefono" type="tel" inputmode="numeric" class="w-full p-3 rounded outline-none" placeholder="Celular (opcional)">
+        <input id="editClienteInstagram" type="text" class="w-full p-3 rounded outline-none" placeholder="Instagram (opcional)">
+
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="flex-1 bg-gold hover:bg-goldLight text-black rounded p-3 font-bold transition active:scale-95">
+            Guardar Cambios
+          </button>
+          <button type="button" onclick="cerrarModal('modalEditarCliente')" class="flex-1 bg-red-600 hover:bg-red-700 rounded p-3 font-bold transition active:scale-95">
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Respaldo (Exportar / Importar) -->
+  <div id="modalBackup" class="modal">
+    <div class="card rounded-xl p-6 w-full max-w-md fade-in">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold font-display">🗂️ Respaldo de datos</h2>
+        <button onclick="cerrarModal('modalBackup')" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+      <p class="text-gray-400 text-sm mb-4">Guarda una copia de tus citas y clientes, o restáurala en otro dispositivo.</p>
+      <div class="space-y-3">
+        <button onclick="exportarDatos()" type="button" class="w-full bg-gold hover:bg-goldLight text-black font-bold rounded p-3 transition active:scale-95">
+          ⬇️ Exportar respaldo (.json)
+        </button>
+        <label class="w-full block text-center bg-[#111] border border-gray-700 hover:border-gold rounded p-3 font-bold transition cursor-pointer active:scale-95">
+          ⬆️ Importar respaldo
+          <input id="inputImportar" type="file" accept="application/json" class="hidden" onchange="importarDatos(event)">
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Confirmación genérica -->
+  <div id="modalConfirmar" class="modal">
+    <div class="card rounded-xl p-6 w-full max-w-sm fade-in">
+      <h2 class="text-xl font-bold mb-3 font-display">⚠️ Confirmar acción</h2>
+      <p id="confirmarMensaje" class="text-gray-300 mb-5 text-sm"></p>
+      <div class="flex gap-3">
+        <button id="btnConfirmarAceptar" type="button" class="flex-1 bg-red-600 hover:bg-red-700 rounded p-3 font-bold transition active:scale-95">
+          Sí, continuar
+        </button>
+        <button type="button" onclick="cerrarModal('modalConfirmar')" class="flex-1 bg-[#111] border border-gray-700 rounded p-3 font-bold transition active:scale-95">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    //  ESTADO GLOBAL
+    // ============================================================
+    let citas = [];
+    let clientes = [];
+    let filtroEstado = "todas";
+    let tabActual = "agenda";
+    let confirmCallback = null;
+
+    // Claves de almacenamiento (v4/v2 = estructura nueva con clienteId/instagram)
+    const KEY_CITAS = "barber_citas_v4";
+    const KEY_CLIENTES = "barber_clientes_v2";
+    // Claves antiguas, solo para migración de datos existentes
+    const KEY_CITAS_LEGACY_V3 = "barber_citas_v3";
+    const KEY_CITAS_LEGACY_V2 = "barber_citas_v2";
+    const KEY_CLIENTES_LEGACY_V1 = "barber_clientes_v1";
+
+    // ============================================================
+    //  UTILIDADES BÁSICAS
+    // ============================================================
+
+    // Fecha local (evita el desfase de un día que producía toISOString() en zonas UTC- como Chile)
+    function fechaLocalISO(fecha) {
+      const d = fecha ? new Date(fecha) : new Date();
+      const offsetMs = d.getTimezoneOffset() * 60000;
+      const local = new Date(d.getTime() - offsetMs);
+      return local.toISOString().slice(0, 10);
+    }
+
+    function sanitizar(str) {
+      return String(str ?? "").replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+      }[tag] || tag));
+    }
+
+    function limpiarTelefono(tel) {
+      return String(tel || "").replace(/\D/g, "");
+    }
+
+    function normalizarInstagram(ig) {
+      let v = String(ig || "").trim();
+      if (!v) return "";
+      v = v.replace(/^@+/, "");
+      v = v.replace(/\s+/g, "");
+      return v ? "@" + v : "";
+    }
+
+    function formatearCLP(valor) {
+      const n = Number(valor) || 0;
+      return n.toLocaleString("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 });
+    }
+
+    function generarId() {
+      return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    // ============================================================
+    //  ALMACENAMIENTO Y MIGRACIÓN DE DATOS ANTIGUOS
+    // ============================================================
+    function cargarStorage() {
+      try {
+        const datosCitas = localStorage.getItem(KEY_CITAS);
+        const datosClientes = localStorage.getItem(KEY_CLIENTES);
+
+        if (datosCitas) citas = JSON.parse(datosCitas) || [];
+        if (datosClientes) clientes = JSON.parse(datosClientes) || [];
+
+        // Migración desde versiones antiguas si no hay datos en el formato nuevo
+        if (!datosCitas && !datosClientes) {
+          migrarDatosAntiguos();
+        }
+      } catch (err) {
+        console.warn("Error leyendo LocalStorage, se intentará recuperar lo posible.", err);
+      }
+
+      // --- Normalización defensiva: evita que datos corruptos rompan la app ---
+      try {
+        clientes = (Array.isArray(clientes) ? clientes : [])
+          .filter(c => c && typeof c === "object" && c.nombre)
+          .map(c => ({
+            id: c.id ? String(c.id) : generarId(),
+            nombre: String(c.nombre || "Sin nombre"),
+            telefono: limpiarTelefono(c.telefono || ""),
+            instagram: normalizarInstagram(c.instagram || ""),
+            creadoEl: c.creadoEl || new Date().toISOString()
+          }));
+
+        citas = (Array.isArray(citas) ? citas : [])
+          .filter(c => c && typeof c === "object" && c.fecha && c.hora)
+          .map(c => ({
+            id: c.id || Date.now() + Math.random(),
+            clienteId: c.clienteId ? String(c.clienteId) : null,
+            nombre: String(c.nombre || "Sin nombre"),
+            telefono: limpiarTelefono(c.telefono || ""),
+            instagram: normalizarInstagram(c.instagram || ""),
+            servicio: String(c.servicio || "Servicio"),
+            precio: c.precio ? Number(c.precio) : null,
+            fecha: c.fecha,
+            hora: c.hora,
+            estado: ["pendiente", "confirmada", "completada", "cancelada"].includes(c.estado) ? c.estado : "pendiente"
+          }));
+      } catch (err) {
+        console.warn("No se pudieron normalizar los datos guardados.", err);
+        citas = Array.isArray(citas) ? citas : [];
+        clientes = Array.isArray(clientes) ? clientes : [];
+      }
+
+      // --- Reconciliación: cualquier cita sin cliente vinculado se enlaza o crea uno ---
+      let huboCambios = false;
+      citas.forEach(cita => {
+        if (!cita.clienteId) {
+          let cliente = null;
+          if (cita.telefono) cliente = clientes.find(c => c.telefono && c.telefono === cita.telefono);
+          if (!cliente && cita.instagram) cliente = clientes.find(c => c.instagram && c.instagram.toLowerCase() === cita.instagram.toLowerCase());
+          if (!cliente) {
+            cliente = {
+              id: generarId(),
+              nombre: cita.nombre,
+              telefono: cita.telefono || "",
+              instagram: cita.instagram || "",
+              creadoEl: new Date().toISOString()
+            };
+            clientes.push(cliente);
+          }
+          cita.clienteId = cliente.id;
+          huboCambios = true;
+        }
+      });
+
+      if (huboCambios) {
+        guardarStorage();
+        guardarClientesStorage();
+      }
+    }
+
+    function migrarDatosAntiguos() {
+      try {
+        // Clientes antiguos (v1): {id, nombre, telefono, visitas, ultimaVisita}
+        const legacyClientesRaw = localStorage.getItem(KEY_CLIENTES_LEGACY_V1);
+        if (legacyClientesRaw) {
+          const legacyClientes = JSON.parse(legacyClientesRaw);
+          clientes = (Array.isArray(legacyClientes) ? legacyClientes : []).map(c => ({
+            id: generarId(),
+            nombre: c.nombre || "Sin nombre",
+            telefono: limpiarTelefono(c.telefono || ""),
+            instagram: "",
+            creadoEl: c.ultimaVisita || new Date().toISOString()
+          }));
+        }
+
+        // Citas antiguas (v3 o v2): sin clienteId ni instagram
+        const legacyCitasRaw = localStorage.getItem(KEY_CITAS_LEGACY_V3) || localStorage.getItem(KEY_CITAS_LEGACY_V2);
+        if (legacyCitasRaw) {
+          const legacyCitas = JSON.parse(legacyCitasRaw);
+          citas = (Array.isArray(legacyCitas) ? legacyCitas : []).map(c => {
+            const telLimpio = limpiarTelefono(c.telefono || "");
+            let cliente = telLimpio ? clientes.find(cl => cl.telefono === telLimpio) : null;
+            if (!cliente) {
+              cliente = {
+                id: generarId(),
+                nombre: c.nombre || "Sin nombre",
+                telefono: telLimpio,
+                instagram: "",
+                creadoEl: new Date().toISOString()
+              };
+              clientes.push(cliente);
+            }
+            return {
+              id: c.id || Date.now() + Math.random(),
+              clienteId: cliente.id,
+              nombre: c.nombre || "Sin nombre",
+              telefono: telLimpio,
+              instagram: "",
+              servicio: c.servicio || "Servicio",
+              precio: c.precio || null,
+              fecha: c.fecha,
+              hora: c.hora,
+              estado: c.estado || "pendiente"
+            };
+          });
+        }
+      } catch (err) {
+        console.warn("No se pudo migrar la información antigua.", err);
+      }
+    }
+
+    function guardarStorage() {
+      try {
+        localStorage.setItem(KEY_CITAS, JSON.stringify(citas));
+      } catch (err) {
+        console.warn("No se pudo escribir en LocalStorage.", err);
+        mostrarNotificacion("No se pudo guardar en este dispositivo (almacenamiento bloqueado).", "error");
+      }
+    }
+
+    function guardarClientesStorage() {
+      try {
+        localStorage.setItem(KEY_CLIENTES, JSON.stringify(clientes));
+      } catch (err) {
+        console.warn("No se pudo escribir clientes en LocalStorage.", err);
+        mostrarNotificacion("No se pudo guardar los clientes en este dispositivo.", "error");
+      }
+    }
+
+    // ============================================================
+    //  NOTIFICACIONES / RELOJ / CONFIRMACIÓN
+    // ============================================================
+    function mostrarNotificacion(mensaje, tipo = "success") {
+      const colores = { success: "bg-green-600", error: "bg-red-600", info: "bg-blue-600" };
+      const stack = document.getElementById("toastStack");
+      const toast = document.createElement("div");
+      toast.className = `toast-item text-white ${colores[tipo] || colores.success}`;
+      toast.innerText = mensaje;
+      stack.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.transition = "opacity .3s, transform .3s";
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(-8px)";
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    function actualizarReloj() {
+      const ahora = new Date();
+      document.getElementById("clock").innerText = ahora.toLocaleTimeString("es-CL");
+      document.getElementById("today").innerText = ahora.toLocaleDateString("es-CL", {
+        weekday: "long", year: "numeric", month: "long", day: "numeric"
+      });
+    }
+    setInterval(actualizarReloj, 1000);
+    actualizarReloj();
+
+    function confirmarAccion(mensaje, callback) {
+      document.getElementById("confirmarMensaje").innerText = mensaje;
+      confirmCallback = callback;
+      document.getElementById("modalConfirmar").classList.add("show");
+    }
+    document.getElementById("btnConfirmarAceptar").addEventListener("click", () => {
+      if (typeof confirmCallback === "function") confirmCallback();
+      confirmCallback = null;
+      cerrarModal("modalConfirmar");
+    });
+
+    // ============================================================
+    //  NAVEGACIÓN ENTRE PESTAÑAS PRINCIPALES
+    // ============================================================
+    function cambiarTab(tab) {
+      tabActual = tab;
+      document.querySelectorAll("#navPrincipal .tab-filtro[data-tab]").forEach(el => {
+        el.classList.toggle("active", el.dataset.tab === tab);
+      });
+      document.getElementById("panelAgenda").classList.toggle("hidden-panel", tab !== "agenda");
+      document.getElementById("panelProximos").classList.toggle("hidden-panel", tab !== "proximos");
+      document.getElementById("panelClientes").classList.toggle("hidden-panel", tab !== "clientes");
+
+      if (tab === "proximos") renderizarProximos();
+      if (tab === "clientes") renderizarClientes();
+      if (tab === "agenda") renderizar();
+    }
+
+    // ============================================================
+    //  CLIENTES: buscar/crear, formulario, listado, edición
+    // ============================================================
+
+    // Cuenta las visitas de un cliente contando sus citas reales (no un contador manual
+    // que antes se incrementaba también al editar una cita, causando el conteo incorrecto).
+    function contarVisitas(clienteId) {
+      return citas.filter(c => c.clienteId === clienteId).length;
+    }
+
+    // Busca un cliente existente por teléfono o Instagram; si no existe, lo crea.
+    function encontrarOCrearCliente(nombre, telefono, instagram) {
+      let cliente = null;
+      if (telefono) cliente = clientes.find(c => c.telefono && c.telefono === telefono);
+      if (!cliente && instagram) cliente = clientes.find(c => c.instagram && c.instagram.toLowerCase() === instagram.toLowerCase());
+
+      if (cliente) {
+        cliente.nombre = nombre || cliente.nombre;
+        if (telefono) cliente.telefono = telefono;
+        if (instagram) cliente.instagram = instagram;
+      } else {
+        cliente = {
+          id: generarId(),
+          nombre: nombre || "Sin nombre",
+          telefono: telefono || "",
+          instagram: instagram || "",
+          creadoEl: new Date().toISOString()
+        };
+        clientes.push(cliente);
+      }
+      guardarClientesStorage();
+      return cliente;
+    }
+
+    function poblarSelectClientes() {
+      const select = document.getElementById("clienteSelect");
+      const valorActual = select.value;
+      const ordenados = [...clientes].sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
+
+      select.innerHTML = `<option value="">＋ Cliente nuevo</option>` + ordenados.map(c => {
+        const visitas = contarVisitas(c.id);
+        const contacto = c.telefono || c.instagram || "sin contacto";
+        return `<option value="${c.id}">${sanitizar(c.nombre)} — ${sanitizar(contacto)} (${visitas} ${visitas === 1 ? 'visita' : 'visitas'})</option>`;
+      }).join("");
+
+      select.value = valorActual;
+      if (select.value !== valorActual) select.value = "";
+    }
+
+    function seleccionarCliente() {
+      const id = document.getElementById("clienteSelect").value;
+      if (!id) {
+        document.getElementById("nombre").value = "";
+        document.getElementById("telefono").value = "";
+        document.getElementById("instagram").value = "";
+        return;
+      }
+      const cliente = clientes.find(c => c.id === id);
+      if (cliente) {
+        document.getElementById("nombre").value = cliente.nombre || "";
+        document.getElementById("telefono").value = cliente.telefono || "";
+        document.getElementById("instagram").value = cliente.instagram || "";
+      }
+    }
+
+    function agregarClienteManual(e) {
+      e.preventDefault();
+      const nombre = document.getElementById("ncNombre").value.trim();
+      const telefono = limpiarTelefono(document.getElementById("ncTelefono").value.trim());
+      const instagram = normalizarInstagram(document.getElementById("ncInstagram").value.trim());
+
+      if (!nombre) {
+        mostrarNotificacion("Ingresa al menos el nombre del cliente.", "error");
+        return;
+      }
+      if (telefono && telefono.length < 8) {
+        mostrarNotificacion("El celular ingresado no es válido.", "error");
+        return;
+      }
+
+      encontrarOCrearCliente(nombre, telefono, instagram);
+      poblarSelectClientes();
+      renderizarClientes();
+      actualizarEstadisticas();
+      document.getElementById("formNuevoCliente").reset();
+      mostrarNotificacion("¡Cliente agregado correctamente!");
+    }
+
+    function renderizarClientes() {
+      const cont = document.getElementById("listaClientes");
+      const contador = document.getElementById("contadorClientes");
+      const filtro = document.getElementById("inputBuscadorClientes").value.toLowerCase().trim();
+
+      const filtrados = [...clientes].filter(c =>
+        (c.nombre || "").toLowerCase().includes(filtro) ||
+        (c.telefono || "").includes(filtro) ||
+        (c.instagram || "").toLowerCase().includes(filtro)
+      ).sort((a, b) => contarVisitas(b.id) - contarVisitas(a.id));
+
+      contador.innerText = `${clientes.length} ${clientes.length === 1 ? 'cliente' : 'clientes'}`;
+
+      if (filtrados.length === 0) {
+        cont.innerHTML = `<div class="text-center text-gray-500 py-8">${filtro ? "No se encontraron clientes con ese criterio." : "No tienes clientes guardados todavía. Agrégalos arriba o se guardan automáticamente al crear una cita."}</div>`;
+        return;
+      }
+
+      cont.innerHTML = filtrados.map(c => {
+        const visitas = contarVisitas(c.id);
+        return `
+        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-[#111] border border-gray-800 rounded-lg p-3">
+          <div>
+            <p class="font-bold">${sanitizar(c.nombre)}</p>
+            <p class="text-gray-400 text-sm">
+              ${c.telefono ? `📱 ${sanitizar(c.telefono)} &nbsp;•&nbsp; ` : ""}
+              ${c.instagram ? `📷 ${sanitizar(c.instagram)} &nbsp;•&nbsp; ` : ""}
+              ${visitas} ${visitas === 1 ? 'visita' : 'visitas'}
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="usarClienteEnFormulario('${c.id}')" type="button" class="bg-gold hover:bg-goldLight text-black text-xs font-bold px-3 py-2 rounded transition active:scale-95">
+              Agendar
+            </button>
+            <button onclick="abrirEditarCliente('${c.id}')" type="button" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded transition active:scale-95">
+              ✏️
+            </button>
+            <button onclick="eliminarCliente('${c.id}')" type="button" class="bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-2 rounded transition active:scale-95">
+              🗑️
+            </button>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function usarClienteEnFormulario(id) {
+      cambiarTab("agenda");
+      document.getElementById("clienteSelect").value = id;
+      seleccionarCliente();
+      document.getElementById("formCita").scrollIntoView({ behavior: "smooth", block: "start" });
+      mostrarNotificacion("Cliente cargado en el formulario.", "info");
+    }
+
+    function abrirEditarCliente(id) {
+      const cliente = clientes.find(c => c.id === id);
+      if (!cliente) return;
+      document.getElementById("editClienteId").value = cliente.id;
+      document.getElementById("editClienteNombre").value = cliente.nombre || "";
+      document.getElementById("editClienteTelefono").value = cliente.telefono || "";
+      document.getElementById("editClienteInstagram").value = cliente.instagram || "";
+      document.getElementById("modalEditarCliente").classList.add("show");
+    }
+
+    function guardarEdicionCliente(e) {
+      e.preventDefault();
+      const id = document.getElementById("editClienteId").value;
+      const cliente = clientes.find(c => c.id === id);
+      if (!cliente) {
+        mostrarNotificacion("No se encontró el cliente a editar.", "error");
+        return;
+      }
+
+      const nombre = document.getElementById("editClienteNombre").value.trim();
+      const telefono = limpiarTelefono(document.getElementById("editClienteTelefono").value.trim());
+      const instagram = normalizarInstagram(document.getElementById("editClienteInstagram").value.trim());
+
+      if (!nombre) {
+        mostrarNotificacion("El nombre es obligatorio.", "error");
+        return;
+      }
+      if (telefono && telefono.length < 8) {
+        mostrarNotificacion("Ingresa un número de celular válido o déjalo vacío.", "error");
+        return;
+      }
+
+      cliente.nombre = nombre;
+      cliente.telefono = telefono;
+      cliente.instagram = instagram;
+      guardarClientesStorage();
+      poblarSelectClientes();
+      renderizarClientes();
+      cerrarModal("modalEditarCliente");
+      mostrarNotificacion("Cliente actualizado.");
+    }
+
+    function eliminarCliente(id) {
+      confirmarAccion("¿Eliminar este perfil de cliente guardado? Sus citas ya registradas no se eliminarán.", () => {
+        clientes = clientes.filter(c => c.id !== id);
+        guardarClientesStorage();
+        poblarSelectClientes();
+        renderizarClientes();
+        actualizarEstadisticas();
+        mostrarNotificacion("Cliente eliminado.", "info");
+      });
+    }
+
+    // ============================================================
+    //  CITAS: crear, editar, eliminar, renderizar
+    // ============================================================
+    function guardarCita(e) {
+      e.preventDefault();
+
+      const clienteSeleccionadoId = document.getElementById("clienteSelect").value;
+      const nombre = document.getElementById("nombre").value.trim();
+      const telefono = limpiarTelefono(document.getElementById("telefono").value.trim());
+      const instagram = normalizarInstagram(document.getElementById("instagram").value.trim());
+      const servicio = document.getElementById("servicio").value;
+      const precio = document.getElementById("precio").value;
+      const fecha = document.getElementById("fecha").value;
+      const hora = document.getElementById("hora").value;
+
+      if (!nombre || !servicio || !fecha || !hora) {
+        mostrarNotificacion("Por favor completa nombre, servicio, fecha y hora.", "error");
+        return;
+      }
+      if (telefono && telefono.length < 8) {
+        mostrarNotificacion("El celular ingresado no es válido (mínimo 8 dígitos). Puedes dejarlo vacío.", "error");
+        return;
+      }
+
+      let clienteId;
+      if (clienteSeleccionadoId) {
+        clienteId = clienteSeleccionadoId;
+        const cliente = clientes.find(c => c.id === clienteId);
+        if (cliente) {
+          cliente.nombre = nombre;
+          if (telefono) cliente.telefono = telefono;
+          if (instagram) cliente.instagram = instagram;
+          guardarClientesStorage();
+        } else {
+          clienteId = encontrarOCrearCliente(nombre, telefono, instagram).id;
+        }
+      } else {
+        clienteId = encontrarOCrearCliente(nombre, telefono, instagram).id;
+      }
+      poblarSelectClientes();
+
+      const nuevaCita = {
+        id: Date.now(),
+        clienteId,
+        nombre,
+        telefono,
+        instagram,
+        servicio,
+        fecha,
+        hora,
+        precio: precio ? Number(precio) : null,
+        estado: "pendiente"
+      };
+
+      citas.push(nuevaCita);
+      guardarStorage();
+      renderizar();
+      if (tabActual === "proximos") renderizarProximos();
+      if (tabActual === "clientes") renderizarClientes();
+
+      document.getElementById("formCita").reset();
+      document.getElementById("clienteSelect").value = "";
+      establecerFechaMinima();
+      mostrarNotificacion("¡Cita guardada correctamente!");
+    }
+
+    function enviarRecordatorio(id) {
+      const cita = citas.find(c => c.id === id);
+      if (!cita) return;
+
+      const numLimpio = limpiarTelefono(cita.telefono);
+      if (!numLimpio) {
+        mostrarNotificacion("Este cliente no tiene celular registrado.", "error");
+        return;
+      }
+
+      const textoMensaje = `💈 *RECORDATORIO DE CITA* 💈\n\n` +
+        `Hola *${cita.nombre}*, te recuerdo tu cita agendada:\n\n` +
+        `✂️ *Servicio:* ${cita.servicio}\n` +
+        `📅 *Fecha:* ${cita.fecha}\n` +
+        `🕒 *Hora:* ${cita.hora} hrs\n\n` +
+        `Por favor, *confirma tu asistencia* o indícame si necesitas reagendar. ¡Nos vemos! 🔥`;
+
+      const mensajeCodificado = encodeURIComponent(textoMensaje);
+      const urlWhatsApp = `https://api.whatsapp.com/send?phone=56${numLimpio}&text=${mensajeCodificado}`;
+      window.open(urlWhatsApp, "_blank", "noopener");
+    }
+
+    function cambiarFiltro(valor) {
+      filtroEstado = valor;
+      document.querySelectorAll("#filtrosEstado .tab-filtro").forEach(el => {
+        el.classList.toggle("active", el.dataset.filtro === valor);
+      });
+      renderizar();
+    }
+
+    function etiquetaEstado(estado) {
+      const mapa = {
+        pendiente: { texto: "🟡 Pendiente", clase: "badge-pendiente" },
+        confirmada: { texto: "🔵 Confirmada", clase: "badge-confirmada" },
+        completada: { texto: "🟢 Completada", clase: "badge-completada" },
+        cancelada: { texto: "🔴 Cancelada", clase: "badge-cancelada" }
+      };
+      return mapa[estado] || mapa.pendiente;
+    }
+
+    function cambiarEstadoRapido(id, nuevoEstado) {
+      const cita = citas.find(c => c.id === id);
+      if (!cita) return;
+      cita.estado = nuevoEstado;
+      guardarStorage();
+      renderizar();
+      if (tabActual === "proximos") renderizarProximos();
+    }
+
+    // Genera el HTML de una tarjeta de cita. Se reutiliza tanto en la Agenda
+    // como en la vista de Próximos 3 días para evitar duplicar lógica (y errores).
+    function crearTarjetaCita(item) {
+      const numLimpio = limpiarTelefono(item.telefono);
+      const estado = etiquetaEstado(item.estado || "pendiente");
+      const hoyStr = fechaLocalISO();
+      const esHoy = item.fecha === hoyStr;
+      const tieneTelefono = !!numLimpio;
+
+      return `
+        <div class="card rounded-xl p-4 md:p-5 flex flex-col md:flex-row justify-between gap-4 items-start md:items-center fade-in">
+          <div class="space-y-1 w-full md:w-auto">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-xl font-bold text-gold">👤 ${sanitizar(item.nombre)}</h3>
+              <span class="badge ${estado.clase}">${estado.texto}</span>
+              ${esHoy ? '<span class="badge bg-gold/20 text-gold border border-gold/40">HOY</span>' : ''}
+            </div>
+            ${item.telefono ? `<p class="text-gray-300 text-sm md:text-base">📱 ${sanitizar(item.telefono)}</p>` : ""}
+            ${item.instagram ? `<p class="text-gray-300 text-sm md:text-base">📷 ${sanitizar(item.instagram)}</p>` : ""}
+            <p class="text-gray-300 text-sm md:text-base">💈 ${sanitizar(item.servicio)}</p>
+            <p class="text-gray-300 text-sm md:text-base">📅 ${item.fecha} &nbsp;|&nbsp; 🕒 ${item.hora}${item.precio ? ` &nbsp;|&nbsp; 💰 ${formatearCLP(item.precio)}` : ""}</p>
+          </div>
+
+          <div class="flex flex-col gap-2 w-full md:w-auto md:items-end pt-2 md:pt-0">
+            <select onchange="cambiarEstadoRapido(${item.id}, this.value)" class="text-xs p-2 rounded w-full md:w-auto">
+              <option value="pendiente" ${item.estado === "pendiente" ? "selected" : ""}>🟡 Pendiente</option>
+              <option value="confirmada" ${item.estado === "confirmada" ? "selected" : ""}>🔵 Confirmada</option>
+              <option value="completada" ${item.estado === "completada" ? "selected" : ""}>🟢 Completada</option>
+              <option value="cancelada" ${item.estado === "cancelada" ? "selected" : ""}>🔴 Cancelada</option>
+            </select>
+            <div class="flex flex-wrap gap-2 w-full md:w-auto">
+              ${tieneTelefono ? `
+              <button onclick="enviarRecordatorio(${item.id})" type="button" class="bg-yellow-600 hover:bg-yellow-500 text-black font-bold px-3 py-2 rounded transition flex-1 md:flex-none text-center active:scale-95">
+                🔔
+              </button>
+              <a href="https://api.whatsapp.com/send?phone=56${numLimpio}" target="_blank" rel="noopener" class="bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded font-bold transition flex-1 md:flex-none text-center active:scale-95">
+                📲
+              </a>` : ""}
+              <button onclick="abrirEditar(${item.id})" type="button" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded transition active:scale-95">
+                ✏️
+              </button>
+              <button onclick="eliminarCita(${item.id})" type="button" class="bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded transition active:scale-95">
+                🗑️
+              </button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderizar() {
+      const lista = document.getElementById("listaCitas");
+      const contador = document.getElementById("contadorCitas");
+      const filtro = document.getElementById("inputBuscador").value.toLowerCase().trim();
+      const hoyStr = fechaLocalISO();
+
+      const ordenadas = [...citas].sort((a, b) => (a.fecha + " " + a.hora).localeCompare(b.fecha + " " + b.hora));
+
+      let filtradas = ordenadas.filter(c =>
+        (c.nombre || "").toLowerCase().includes(filtro) ||
+        (c.servicio || "").toLowerCase().includes(filtro) ||
+        (c.telefono || "").includes(filtro) ||
+        (c.instagram || "").toLowerCase().includes(filtro)
+      );
+
+      if (filtroEstado === "hoy") filtradas = filtradas.filter(c => c.fecha === hoyStr);
+      else if (filtroEstado !== "todas") filtradas = filtradas.filter(c => c.estado === filtroEstado);
+
+      contador.innerText = `${citas.length} ${citas.length === 1 ? 'cita' : 'citas'}`;
+      actualizarEstadisticas();
+
+      if (filtradas.length === 0) {
+        lista.innerHTML = `
+          <div class="text-center text-gray-500 py-10">
+            ${filtro || filtroEstado !== "todas" ? "No se encontraron citas con ese criterio." : "No hay citas registradas. Agenda tu primera cita en el formulario."}
+          </div>
+        `;
+        return;
+      }
+
+      lista.innerHTML = filtradas.map(crearTarjetaCita).join("");
+    }
+
+    function renderizarProximos() {
+      const cont = document.getElementById("listaProximos");
+      const hoy = new Date();
+      let html = "";
+
+      for (let i = 0; i < 3; i++) {
+        const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + i);
+        const fechaStr = fechaLocalISO(d);
+        const citasDia = citas
+          .filter(c => c.fecha === fechaStr)
+          .sort((a, b) => a.hora.localeCompare(b.hora));
+
+        const etiquetaDia = i === 0 ? "Hoy" : i === 1 ? "Mañana" : d.toLocaleDateString("es-CL", { weekday: "long" });
+        const fechaBonita = d.toLocaleDateString("es-CL", { day: "numeric", month: "long" });
+
+        html += `<div>
+          <div class="flex flex-wrap items-center gap-2 mb-3 pb-2 border-b border-gray-800">
+            <h3 class="text-lg font-bold text-gold capitalize">${etiquetaDia}</h3>
+            <span class="text-gray-400 text-sm capitalize">${fechaBonita}</span>
+            <span class="text-gray-500 text-xs">(${citasDia.length} ${citasDia.length === 1 ? 'cita' : 'citas'})</span>
+          </div>`;
+
+        if (citasDia.length === 0) {
+          html += `<div class="text-gray-500 text-sm pb-2">Sin citas programadas para este día.</div>`;
+        } else {
+          html += `<div class="space-y-3">${citasDia.map(crearTarjetaCita).join("")}</div>`;
+        }
+
+        html += `</div>`;
+      }
+
+      cont.innerHTML = html;
+    }
+
+    function actualizarEstadisticas() {
+      const hoyStr = fechaLocalISO();
+      const citasHoy = citas.filter(c => c.fecha === hoyStr);
+      const ingresosHoy = citasHoy.reduce((sum, c) => sum + (Number(c.precio) || 0), 0);
+
+      document.getElementById("statHoy").innerText = citasHoy.length;
+      document.getElementById("statTotal").innerText = citas.length;
+      document.getElementById("statIngresos").innerText = formatearCLP(ingresosHoy);
+      document.getElementById("statClientes").innerText = clientes.length;
+    }
+
+    // --- Acciones de Edición y Borrado de citas ---
+    function abrirEditar(id) {
+      const cita = citas.find(c => c.id === id);
+      if (!cita) return;
+
+      document.getElementById("editId").value = cita.id;
+      document.getElementById("editNombre").value = cita.nombre;
+      document.getElementById("editTelefono").value = cita.telefono || "";
+      document.getElementById("editInstagram").value = cita.instagram || "";
+      document.getElementById("editServicio").value = cita.servicio;
+      document.getElementById("editPrecio").value = cita.precio || "";
+      document.getElementById("editFecha").value = cita.fecha;
+      document.getElementById("editHora").value = cita.hora;
+      document.getElementById("editEstado").value = cita.estado || "pendiente";
+
+      document.getElementById("modal").classList.add("show");
+    }
+
+    function cerrarModal(idModal) {
+      document.getElementById(idModal).classList.remove("show");
+    }
+
+    function guardarEdicion(e) {
+      e.preventDefault();
+
+      const id = Number(document.getElementById("editId").value);
+      const idx = citas.findIndex(c => c.id === id);
+      if (idx === -1) {
+        mostrarNotificacion("No se encontró la cita a editar.", "error");
+        cerrarModal("modal");
+        return;
+      }
+
+      const nombre = document.getElementById("editNombre").value.trim();
+      const telefono = limpiarTelefono(document.getElementById("editTelefono").value.trim());
+      const instagram = normalizarInstagram(document.getElementById("editInstagram").value.trim());
+
+      if (!nombre) {
+        mostrarNotificacion("El nombre es obligatorio.", "error");
+        return;
+      }
+      if (telefono && telefono.length < 8) {
+        mostrarNotificacion("Ingresa un número de celular válido o déjalo vacío.", "error");
+        return;
+      }
+
+      citas[idx].nombre = nombre;
+      citas[idx].telefono = telefono;
+      citas[idx].instagram = instagram;
+      citas[idx].servicio = document.getElementById("editServicio").value;
+      citas[idx].precio = document.getElementById("editPrecio").value ? Number(document.getElementById("editPrecio").value) : null;
+      citas[idx].fecha = document.getElementById("editFecha").value;
+      citas[idx].hora = document.getElementById("editHora").value;
+      citas[idx].estado = document.getElementById("editEstado").value;
+
+      // Sincroniza los datos del cliente vinculado SIN alterar el conteo de visitas
+      // (las visitas se calculan siempre a partir del número real de citas guardadas).
+      let cliente = clientes.find(c => c.id === citas[idx].clienteId);
+      if (!cliente) {
+        cliente = encontrarOCrearCliente(nombre, telefono, instagram);
+        citas[idx].clienteId = cliente.id;
+      } else {
+        cliente.nombre = nombre;
+        if (telefono) cliente.telefono = telefono;
+        if (instagram) cliente.instagram = instagram;
+        guardarClientesStorage();
+      }
+
+      guardarStorage();
+      poblarSelectClientes();
+      renderizar();
+      if (tabActual === "proximos") renderizarProximos();
+      if (tabActual === "clientes") renderizarClientes();
+      cerrarModal("modal");
+      mostrarNotificacion("¡Cita actualizada correctamente!");
+    }
+
+    function eliminarCita(id) {
+      confirmarAccion("¿Seguro que deseas eliminar esta cita? Esta acción no se puede deshacer.", () => {
+        citas = citas.filter(c => c.id !== id);
+        guardarStorage();
+        renderizar();
+        if (tabActual === "proximos") renderizarProximos();
+        if (tabActual === "clientes") renderizarClientes();
+        poblarSelectClientes();
+        mostrarNotificacion("Cita eliminada.", "info");
+      });
+    }
+
+    // --- Respaldo: exportar / importar ---
+    function abrirBackup() {
+      document.getElementById("modalBackup").classList.add("show");
+    }
+
+    function exportarDatos() {
+      const payload = { citas, clientes, exportadoEl: new Date().toISOString(), version: 2 };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `barber-agenda-respaldo-${fechaLocalISO()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      mostrarNotificacion("Respaldo descargado.", "info");
+    }
+
+    function importarDatos(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (!Array.isArray(data.citas) || !Array.isArray(data.clientes)) {
+            throw new Error("Formato inválido");
+          }
+          confirmarAccion("Importar reemplazará tus citas y clientes actuales. ¿Continuar?", () => {
+            citas = data.citas;
+            clientes = data.clientes;
+            guardarStorage();
+            guardarClientesStorage();
+            // Vuelve a pasar por la normalización defensiva y reconciliación
+            cargarStorage();
+            poblarSelectClientes();
+            renderizar();
+            if (tabActual === "proximos") renderizarProximos();
+            if (tabActual === "clientes") renderizarClientes();
+            cerrarModal("modalBackup");
+            mostrarNotificacion("Respaldo importado correctamente.");
+          });
+        } catch (err) {
+          mostrarNotificacion("El archivo no es un respaldo válido.", "error");
+        }
+        e.target.value = "";
+      };
+      reader.onerror = () => mostrarNotificacion("No se pudo leer el archivo seleccionado.", "error");
+      reader.readAsText(file);
+    }
+
+    // --- Cierre de modales (clic afuera / tecla Escape) ---
+    const IDS_MODALES = ["modal", "modalEditarCliente", "modalBackup", "modalConfirmar"];
+
+    window.onclick = function (e) {
+      IDS_MODALES.forEach(id => {
+        const m = document.getElementById(id);
+        if (e.target === m) cerrarModal(id);
+      });
+    };
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        IDS_MODALES.forEach(id => cerrarModal(id));
+      }
+    });
+
+    function establecerFechaMinima() {
+      const hoy = fechaLocalISO();
+      const inputFecha = document.getElementById("fecha");
+      inputFecha.min = hoy;
+      if (!inputFecha.value) inputFecha.value = hoy;
+    }
+
+    // ============================================================
+    //  BANNER "AGREGAR A PANTALLA DE INICIO" (para pantalla completa en iPhone)
+    // ============================================================
+    function esIOS() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    }
+    function esStandalone() {
+      return window.navigator.standalone === true ||
+        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    }
+    function cerrarBannerInstalar() {
+      document.getElementById("bannerInstalar").classList.remove("show");
+      try { localStorage.setItem("barber_banner_dismissed", "1"); } catch (err) {}
+    }
+    function inicializarBannerInstalar() {
+      try {
+        if (esIOS() && !esStandalone() && localStorage.getItem("barber_banner_dismissed") !== "1") {
+          document.getElementById("bannerInstalar").classList.add("show");
+        }
+      } catch (err) { /* si localStorage falla, simplemente no mostramos el banner */ }
+    }
+
+    // ============================================================
+    //  MANEJO GLOBAL DE ERRORES (evita pantallas en blanco silenciosas)
+    // ============================================================
+    let errorMostrado = false;
+    window.addEventListener("error", function (evento) {
+      console.error("Error no controlado:", evento.error || evento.message);
+      if (!errorMostrado) {
+        errorMostrado = true;
+        mostrarNotificacion("Ocurrió un problema inesperado. Si algo no se ve bien, recarga la app.", "error");
+      }
+    });
+    window.addEventListener("unhandledrejection", function (evento) {
+      console.error("Promesa rechazada sin manejar:", evento.reason);
+    });
+
+    // ============================================================
+    //  INICIALIZACIÓN
+    // ============================================================
+    try {
+      cargarStorage();
+      poblarSelectClientes();
+      establecerFechaMinima();
+      renderizar();
+      inicializarBannerInstalar();
+    } catch (err) {
+      console.error("Error al iniciar la aplicación:", err);
+      mostrarNotificacion("Hubo un problema al cargar tus datos. Revisa el respaldo si tienes uno.", "error");
+    }
+  </script>
+</body>
+</html>
